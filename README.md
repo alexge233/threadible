@@ -1,4 +1,5 @@
-# Threadible
+![#Threadible](https://github.com/alexge233/threadible/blob/master/threadible.png)
+
 
 A C++11 thread pool header for easy pooling.
 This is a **header-only** library, so all you need is `threadible.hpp`.
@@ -10,6 +11,15 @@ This is a **header-only** library, so all you need is `threadible.hpp`.
 ## Building
 
 There's nothing to build, just take a look at `example.cpp`
+If however you wanna see the example in action, then:
+
+```
+mkdir build
+cd build
+cmake ..
+make
+./thread_pool
+```
 
 ## Example
 
