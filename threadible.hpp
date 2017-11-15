@@ -11,13 +11,13 @@
  * @date 14-11-2017
  * @author Alex Gkiokas
  *
- * @note template param S is a resource type, which **must** have
+ * @note template param worker is a resource type, which **must** have
  *       a public `std::mutex` accessible, 
- *       and it **must** expose a `run(T callback, Args... parameters)`
+ *       and it **must** expose a `operator()(Args... parameters)`
  *
- * @see example.cpp on how to implement the `template class S`
+ * @see example.cpp on how to implement the `template class worker`
  */
-template <class S>
+template <class worker>
 class threadible
 {
 public:
@@ -33,10 +33,9 @@ public:
     /// stop pool thread
     void stop();
 
-    /// \brief submit new task
-    template <class F,
-              typename... Args>
-    void submit(F&& arg, Args... args);
+    /// @brief submit new task
+    template <typename... Args>
+    void submit(Args... args);
     
 protected:
     // process thread
@@ -47,7 +46,7 @@ private:
     boost::asio::io_service _io_service;
     boost::asio::io_service::work _work {_io_service};
     std::vector<std::thread> _threads;
-    std::vector<std::unique_ptr<S>> _assets;
+    std::vector<std::unique_ptr<worker>> _assets;
     std::condition_variable _cv;
     std::mutex _mtx;
     std::size_t _tasks = 0;
@@ -56,24 +55,24 @@ private:
 /**
  * Template implementations - Hackaway :-D
  */
-template <class S>
-threadible<S>::threadible(unsigned int max_threads)
+template <class worker>
+threadible<worker>::threadible(unsigned int max_threads)
 {
     for (auto i = 0; i < max_threads; i++) {
         _threads.emplace_back(std::bind(&threadible::thread_proc, this));
-        _assets.emplace_back(std::make_unique<S>(i));
+        _assets.emplace_back(std::make_unique<worker>(i));
     }
 }
 
-template <class S>
-void threadible<S>::wait()
+template <class worker>
+void threadible<worker>::wait()
 {
     std::unique_lock<std::mutex> lock(_mtx);
     _cv.wait(lock, [this] { return _tasks == 0; });
 }
 
-template <class S>
-void threadible<S>::stop()
+template <class worker>
+void threadible<worker>::stop()
 {
     wait();
     _io_service.stop();
@@ -86,8 +85,8 @@ void threadible<S>::stop()
     _assets.clear();
 }
 
-template <class S>
-void threadible<S>::thread_proc()
+template <class worker>
+void threadible<worker>::thread_proc()
 {
     while (!_io_service.stopped()) {
         try {
@@ -99,8 +98,8 @@ void threadible<S>::thread_proc()
     }
 }
 
-template <class S>
-void threadible<S>::reduce()
+template <class worker>
+void threadible<worker>::reduce()
 {
     // scoped unique mutex lock
     std::unique_lock<std::mutex> lock(_mtx);
@@ -111,30 +110,29 @@ void threadible<S>::reduce()
     }
 }
 
-template <class S>
-template <class F,
-          typename... Args>
-void threadible<S>::submit(F&& arg, Args... args)
+template <class worker>
+template <typename... Args>
+void threadible<worker>::submit(Args... args)
 {
     std::unique_lock<std::mutex> lock(_mtx);
     ++ _tasks;
     lock.unlock();
     // post a task, once it has run, reduce tasks
     _io_service.post(
-            [this, arg, args...]() mutable
-            {
-                for (auto & asset : _assets) {
-                    if (asset->mutex.try_lock()) {
-                        asset->operator()(arg, std::forward<Args>(args)...);
-                        reduce();
-                        asset->mutex.unlock();
-                        return;
-                    }
-                 }
-                 // if loop reaches here and hasn't executed
-                 // it means we didn't find a free asset to use
-                 // in which case we have a serious problem
-                 if (true) throw std::runtime_error("failed to acquire asset");
-            });
+        [this, args...]() mutable
+        {
+            for (auto & asset : _assets) {
+                if (asset->mutex.try_lock()) {
+                    asset->operator()(std::forward<Args>(args)...);
+                    reduce();
+                    asset->mutex.unlock();
+                    return;
+                }
+             }
+             // if loop reaches here and hasn't executed
+             // it means we didn't find a free asset to use
+             // in which case we have a serious problem
+             if (true) throw std::runtime_error("failed to acquire asset");
+        });
 }
 #endif

@@ -6,20 +6,13 @@ using namespace std::chrono_literals;
 
 /**
  * just ane example task, all it does is
- * print a number and the resource ID it is using
+ * encapsulate some data which will be handledd
+ * by the `resource` later on
  */
 struct task
 {
     const int number;
-
     task(int i) : number(i) {}
-
-    int operator()(int res) const
-    {
-        printf("%s %d  %s %d\r\n", 
-               "task #: ", number,  " resource #: ", res);
-        std::this_thread::sleep_for(1s);
-    }
 };
 
 /**
@@ -39,11 +32,20 @@ struct resource
 
     resource(int i) : number(i) {}
 
-    template <class Task,
-              typename... Args>
-    void operator()(Task arg, Args... args) const
+    /// @brief do the actual work here
+    void print(task & t) const
+    { 
+        printf("%s %d  %s %d\r\n", 
+               "task #: ", t.number,  " resource #: ", number);
+        std::this_thread::sleep_for(1s);
+       
+    }
+
+    /// @brief expose this operator which will be called by `threadible::submit`
+    template <typename... Args>
+    void operator()(Args... args) const
     {
-        arg(number, args...);
+        print(args...);
     }
 };
 
@@ -56,7 +58,7 @@ auto main() -> int
     threadible<resource> tpool(8);
     //
     // add tasks to the pool - it will automatically
-    // start executing them.
+    // start executing them - else it will sit idle.
     //
     for (int i = 0; i < 100; i++) {
         tpool.submit(task(i));
