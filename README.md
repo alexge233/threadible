@@ -3,7 +3,7 @@
 
 A C++11 Header only class, which allows you to use a one-time thread pool in an asynchronous (Event IO) way,
 by enapsulating your tasks or jobs in classes (OOP).
-For the benefits of thread-pools, please read the [#WikiPedia Article](https://en.wikipedia.org/wiki/Thread_pool) which summarizes what you gain.
+For the benefits of thread-pools, please read the [#Wikipedia article](https://en.wikipedia.org/wiki/Thread_pool) which summarizes what you gain.
 
 This is a **header-only** library, so all you need is `threadible.hpp` and the associated boost headers:
 
